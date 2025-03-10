@@ -1,8 +1,13 @@
-resource "aws_instance" "app_server" {
-  ami           = "ami-0c02fb55956c7d316" # Amazon Linux AMI (exemple)
-  instance_type = var.instance_type
+resource "docker_image" "nginx" {
+  name         = "nginx:latest"
+  keep_locally = false
+}
 
-  tags = {
-    Name = "DevOps-App-Server"
+resource "docker_container" "nginx" {
+  image = docker_image.nginx.name
+  name  = "nginx_server"
+  ports {
+    internal = 80
+    external = 8080
   }
 }

@@ -11,6 +11,11 @@ resource "docker_container" "nginx" {
     internal = 80
     external = 8080
   }
+
+  volumes {
+    host_path      = "${abspath(path.module)}/custom-nginx/html"
+    container_path = "/usr/share/nginx/html"
+  }
 }
 
 resource "docker_image" "postgres" {

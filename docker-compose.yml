@@ -4,19 +4,18 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./infra/terraform/custom-nginx/html:/usr/share/nginx/html  # Chemin corrigé
+      - ./custom-nginx/html:/usr/share/nginx/html  # Chemin pour les fichiers HTML de Nginx
 
   postgres:
     image: postgres:latest
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: mydatabase
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: ${POSTGRES_USER}          # Variable d'environnement pour l'utilisateur PostgreSQL
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # Variable d'environnement pour le mot de passe PostgreSQL
+      POSTGRES_DB: ${POSTGRES_DB}              # Variable d'environnement pour le nom de la base de données PostgreSQL
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data  # Utilisation d'un volume nommé pour stocker les données PostgreSQL
 
 volumes:
-  postgres_data:
+  postgres_data:  # Déclaration du volume nommé pour PostgreSQL

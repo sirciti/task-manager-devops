@@ -179,3 +179,71 @@ La page Nginx est accessible sans erreur.
 
 à ce niveau 
 Si tout est correct, vous pouvez considérer votre configuration comme validée !
+
+
+Documentation des étapes et résolution des problèmes
+1. Mise en place initiale
+Configuration des services Docker avec docker-compose.yml :
+
+Nginx : Pour servir du contenu statique.
+
+PostgreSQL : Pour la base de données.
+
+Création des volumes pour la persistance des données.
+
+2. Problèmes rencontrés
+Problème 1 : Permissions sur le volume PostgreSQL sous Windows
+Message d'erreur :
+
+chmod: changing permissions of '/var/lib/postgresql/data/pgdata': Operation not permitted
+Cause : Conflit de permissions entre le système de fichiers Windows et Docker.
+
+Solution :
+
+Remplacement du montage local par un volume nommé dans docker-compose.yml :
+
+
+volumes:
+  - postgres_data:/var/lib/postgresql/data
+Problème 2 : Table manquante dans PostgreSQL
+Message d'erreur :
+
+
+ERROR: relation "test_table" does not exist
+Cause : La table test_table n'avait pas encore été créée.
+
+Solution : Création manuelle de la table et insertion des données :
+
+
+docker exec -it task-manager-devops-postgres-1 psql -U admin -d mydatabase
+Dans la console PostgreSQL :
+
+
+CREATE TABLE test_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50)
+);
+INSERT INTO test_table (name) VALUES ('Alice'), ('Bob'), ('Charlie');
+3. Commandes utilisées pour diagnostiquer et résoudre les problèmes
+Vérification des conteneurs actifs :
+
+docker ps
+Logs des conteneurs pour identifier les erreurs :
+
+docker logs <container_name>
+Accès à PostgreSQL pour exécuter des commandes SQL :
+
+docker exec -it task-manager-devops-postgres-1 psql -U admin -d mydatabase
+Suppression des volumes problématiques :
+
+rm -rf ./data/postgres/*
+docker-compose down -v && docker-compose up -d
+4. Automatisation et sécurisation
+Ajout d'un pipeline CI/CD avec GitHub Actions pour automatiser les tests et le déploiement.
+
+Sécurisation des variables sensibles avec un fichier .env :
+
+
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=admin123
+POSTGRES_DB=mydatabase

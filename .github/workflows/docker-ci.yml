@@ -1,0 +1,24 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and run containers
+        run: |
+          docker-compose up -d
+          docker exec task-manager-devops-postgres-1 psql -U admin -d mydatabase -c "SELECT * FROM test_table;"
+
+      - name: Tear down containers
+        run: docker-compose down

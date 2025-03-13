@@ -1,65 +1,99 @@
-provider "docker" {}
-
-resource "docker_image" "nginx" {
-  name         = "nginx:latest"
-  keep_locally = false
-}
-
-resource "docker_container" "nginx" {
-  image = docker_image.nginx.name
-  name  = "nginx_server"
-
-  ports {
-    internal = 80
-    external = 8080
+# Configuration de Terraform et du fournisseur Google
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
   }
 
-  volumes {
-    host_path      = "${abspath(path.module)}/custom-nginx/html"
-    container_path = "/usr/share/nginx/html"
+  backend "gcs" {
+    bucket = "my-terraform-state-bucket" # Remplacez par le nom de votre bucket
+    prefix = "terraform/state"
   }
 }
 
-resource "docker_image" "postgres" {
-  name         = "postgres:latest"
-  keep_locally = false
+provider "google" {
+  credentials = file("path/to/your/service-account-key.json") # Chemin vers le fichier JSON
+  project     = var.project_id                                # ID du projet GCP
+  region      = var.region                                    # Région (exemple : us-central1)
+  zone        = var.zone                                      # Zone (exemple : us-central1-c)
 }
 
-resource "docker_volume" "postgres_data" {
-  name = "postgres_data"
+# Instance Compute Engine (VM) avec Docker
+resource "google_compute_instance" "docker_host" {
+  name         = "mon-instance"
+  machine_type = "e2-medium" # Type de machine (2 vCPU, 4 Go RAM)
+  zone         = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12" # Image Debian Bookworm
+    }
+  }
+
+  network_interface {
+    network       = "default"
+    access_config {} # Permet d'obtenir une IP publique
+  }
+
+  metadata_startup_script = <<-EOT
+    #!/bin/bash
+    sudo apt update
+    sudo apt install -y docker.io
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo usermod -aG docker ${var.ssh_user}
+  EOT
+
+  tags = ["docker-host"]
 }
 
-resource "docker_container" "postgres" {
-  image = docker_image.postgres.name
-  name  = "postgres_server"
+# Pare-feu pour autoriser SSH, HTTP et HTTPS
+resource "google_compute_firewall" "allow_ssh_http_https" {
+  name    = "allow-ssh-http-https"
+  network = "default"
 
-  ports {
-    internal = 5432
-    external = 5432
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "80", "443"]
   }
 
-  env = [
-    "POSTGRES_USER=admin",
-    "POSTGRES_PASSWORD=admin123",
-    "POSTGRES_DB=mydatabase",
-    "PGDATA=/var/lib/postgresql/data/pgdata"
-  ]
+  source_ranges = ["0.0.0.0/0"] # Autorise tout le monde (à restreindre si nécessaire)
+}
 
-  volumes {
-    volume_name    = docker_volume.postgres_data.name
-    container_path = "/var/lib/postgresql/data"
+# Instance Cloud SQL pour PostgreSQL
+resource "google_sql_database_instance" "postgres_instance" {
+  name             = "postgres-instance"
+  database_version = "POSTGRES_14" # Version PostgreSQL
+
+  settings {
+    tier              = "db-f1-micro" # Type d'instance (ajustez selon vos besoins)
+    disk_size         = 10           # Taille du disque en Go
+    disk_type         = "PD_SSD"     # Disque SSD persistant
+    activation_policy = "ALWAYS"
+
+    ip_configuration {
+      ipv4_enabled   = true          # Activer IPv4 public pour se connecter à la base de données
+      authorized_networks {          # Ajoutez votre IP publique ici si nécessaire
+        name        = "my-ip"
+        value       = "<YOUR_IP_ADDRESS>" # Remplacez par votre adresse IP publique ou laissez vide pour tester.
+      }
+    }
   }
 
-  healthcheck {
-    test     = ["CMD-SHELL", "pg_isready -U admin -d mydatabase"]
-    interval = "10s"
-    timeout  = "5s"
-    retries  = 3
-  }
+  region = var.region
+}
 
-  log_driver = "json-file"
-  log_opts = {
-    max-size = "10m"
-    max-file = "3"
-  }
+# Base de données PostgreSQL dans l'instance Cloud SQL
+resource "google_sql_database" "postgres_db" {
+  name     = "mydatabase"
+  instance = google_sql_database_instance.postgres_instance.name
+}
+
+# Utilisateur PostgreSQL avec mot de passe défini dans les variables Terraform
+resource "google_sql_user" "postgres_user" {
+  name     = "admin"
+  instance = google_sql_database_instance.postgres_instance.name
+  password = var.postgres_password # Mot de passe défini dans les variables Terraform ou via un fichier sécurisé.
 }

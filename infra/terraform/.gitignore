@@ -1,0 +1,74 @@
+# **Général**
+
+# Ignorer tous les fichiers temporaires
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Ignorer les fichiers de sauvegarde
+*.bak
+*.old
+*.orig
+*.backup
+
+# Ignorer les fichiers logs
+*.log
+
+# Ignorer les fichiers binaires ou compilés
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.out
+*.class
+*.pyc
+*.pyo
+*.pdb
+
+# Ignorer les archives et fichiers compressés
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+
+# Ignorer les fichiers de configuration localisée
+*.env
+*.local
+*.secret
+*.key
+*.pem
+*.crt
+*.der
+*.cert
+
+# Ignorer les fichiers contenant des mots de passe ou des tokens
+*.passwd
+*.token
+*.json
+
+# Ignorer les fichiers de cache
+*.cache
+*.tmp
+.cache/
+tmp/
+
+# Ignorer certains dossiers de build/CI/CD
+build/
+dist/
+target/
+.idea/
+.vscode/
+.DS_Store
+.vimrc
+
+# Ignorer les fichiers Terraform contenant des variables sensibles
+*.tfvars
+*.tfvars.json
+
+
+
+

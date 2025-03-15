@@ -17,3 +17,8 @@ variable "postgres_password" {
   description = "Mot de passe pour PostgreSQL"
   type        = string
 }
+
+variable "ssh_user" {
+  description = "Nom de l'utilisateur SSH pour les VMs"
+  type        = string
+}

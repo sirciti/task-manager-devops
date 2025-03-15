@@ -353,3 +353,185 @@ Ce document décrit les étapes suivies pour configurer Terraform sur Google Clo
 *   Exécutez `terraform plan` pour vérifier les changements à appliquer.
 *   Exécutez `terraform apply` pour provisionner les ressources sur GCP.
 
+
+## Copier un fichier local vers un bucket GCS
+
+1. Assurez-vous que le fichier à copier existe dans le répertoire actuel ou spécifiez son chemin complet.
+2. Utilisez la commande suivante pour copier un fichier local vers un bucket GCS :
+    ```
+    gsutil cp <fichier_local> gs://<nom_du_bucket>/
+    ```
+    Exemple :
+    ```
+    gsutil cp test-file.txt gs://my-terraform-bucket-state/
+    ```
+
+3. Si vous rencontrez une erreur comme :
+    ```
+    CommandException: No URLs matched: test-file.txt
+    ```
+    Cela signifie que le fichier n'existe pas dans le répertoire actuel. Naviguez vers le bon répertoire ou spécifiez le chemin complet du fichier.
+
+4. Une fois la commande réussie, vous verrez une confirmation comme :
+    ```
+    Copying file://test-file.txt [Content-Type=text/plain]...
+    - [1 files][   28.0 B/   28.0 B]
+    Operation completed over 1 objects/28.0 B.
+    ```
+
+5. Vérifiez que le fichier est bien présent dans votre bucket via la console GCP ou avec :
+    ```
+    gsutil ls gs://<nom_du_bucket>/
+    ```
+
+
+# Déploiement Terraform sur Google Cloud Platform (GCP)
+
+Ce document décrit les étapes suivies pour configurer et déployer une infrastructure avec Terraform sur GCP, ainsi que les problèmes rencontrés et leurs solutions.
+
+---
+
+## Étapes de configuration
+
+### 1. Initialisation du projet
+- Assurez-vous que le projet Google Cloud est correctement configuré.
+- Identifiez le **Project ID** : `discovery-452411`.
+
+### 2. Création d'un compte de service
+- Créez un compte de service nommé `service_account_manager`.
+- Attribuez-lui le rôle **Storage Object Admin** pour accéder au bucket GCS utilisé par Terraform.
+
+### 3. Téléchargement de la clé JSON
+- Téléchargez la clé JSON associée au compte de service :
+  - Accédez à **IAM & Admin > Comptes de service** dans la console GCP.
+  - Ajoutez une clé JSON via l'onglet **Clés**.
+  - Placez cette clé dans le répertoire suivant :  
+    `I:\task-manager-devops\infra\terraform\service-account-key.json`.
+
+---
+
+## Problèmes rencontrés et solutions
+
+### Erreur : Fichier de clé JSON manquant
+- **Problème :** Terraform ne trouvait pas le fichier JSON (`path/to/your/service-account-key.json`).
+- **Solution :** Téléchargez la clé JSON, placez-la dans le répertoire Terraform, puis mettez à jour `provider.tf` :
+provider "google" {
+credentials = file("I:/task-manager-devops/infra/terraform/service-account-key.json")
+project = var.project_id
+region = var.region
+zone = var.zone
+}
+
+
+### Erreur : Variable `ssh_user` non déclarée
+- **Problème :** Une variable non déclarée était référencée dans `terraform.tfvars`.
+- **Solution :** Ajoutez la déclaration suivante dans `variables.tf` :
+variable "ssh_user" {
+description = "Nom de l'utilisateur SSH pour les VMs"
+type = string
+}
+
+
+### Erreur : Référence à une ressource non définie (`docker_container.nginx`)
+- **Problème :** Une sortie faisait référence à une ressource Docker inexistante.
+- **Solution :** Supprimez ou corrigez l'entrée correspondante dans `outputs.tf` :
+Supprimer ou corriger cette ligne si Docker n'est pas utilisé
+output "nginx_container_id" {
+value = docker_container.nginx.id
+}
+
+
+---
+
+## Commandes clés utilisées
+
+### Initialisation de Terraform
+terraform init
+
+
+### Planification des modifications
+terraform plan
+
+
+### Application des modifications
+terraform apply
+
+
+### Vérification des ressources sur GCP
+- Listez les instances créées :
+gcloud compute instances list
+
+- Testez l'accès SSH à une VM :
+gcloud compute ssh <nom_instance> --zone=<zone>
+
+
+---
+
+## Bonnes pratiques
+
+1. **Exclusion des fichiers sensibles :**
+ - Ajoutez le fichier `service-account-key.json` au `.gitignore` pour éviter qu'il ne soit versionné.
+ - Exemple d'entrée `.gitignore` :
+   ```
+   service-account-key.json
+   terraform.tfstate*
+   ```
+
+2. **Validation des ressources :**
+ - Vérifiez que toutes les ressources sont correctement créées dans la console GCP.
+
+---
+
+## Prochaines étapes
+
+1. Ajouter des tests pour valider les services (VMs, bases de données, etc.).
+2. Automatiser les déploiements avec un pipeline CI/CD.
+3. Optimiser la sécurité en utilisant des outils comme HashiCorp Vault pour gérer les secrets.
+
+
+Documentation des étapes et résolution des problèmes
+
+Problème rencontré
+Lors de l'exécution de terraform plan, nous avons rencontré des erreurs d'autorisation (403 Forbidden) indiquant que le compte de service utilisé par Terraform n'avait pas les permissions nécessaires pour accéder ou gérer certaines ressources sur Google Cloud Platform (GCP).
+
+Diagnostic
+Les erreurs spécifiques incluaient :
+
+Manque de permission storage.buckets.get sur le bucket GCS
+
+Manque de permission compute.instances.get sur l'instance Compute Engine
+
+Manque de permission compute.firewalls.get sur la règle de pare-feu
+
+Erreur notAuthorized sur l'instance Cloud SQL
+
+Solution
+Nous avons ajouté les rôles IAM nécessaires au compte de service utilisé par Terraform :
+
+PowerShell admin:
+
+gcloud projects add-iam-policy-binding discovery-452411 `
+    --member="serviceAccount:1099497021022-compute@developer.gserviceaccount.com" `
+    --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding discovery-452411 `
+    --member="serviceAccount:1099497021022-compute@developer.gserviceaccount.com" `
+    --role="roles/compute.admin"
+
+gcloud projects add-iam-policy-binding discovery-452411 `
+    --member="serviceAccount:1099497021022-compute@developer.gserviceaccount.com" `
+    --role="roles/cloudsql.admin"
+Vérification
+Nous avons vérifié l'attribution des rôles avec :
+
+gcloud projects get-iam-policy discovery-452411
+Résultat
+Après avoir ajouté les permissions nécessaires, terraform plan et terraform apply ont fonctionné correctement, permettant la mise à jour de l'instance Cloud SQL.
+
+Leçons apprises
+Importance de bien comprendre les messages d'erreur pour un diagnostic précis.
+
+Nécessité d'attribuer les bonnes permissions IAM pour le bon fonctionnement de Terraform avec GCP.
+
+Avantage de GCP : gestion fine des permissions IAM pour un contrôle précis des accès.
+

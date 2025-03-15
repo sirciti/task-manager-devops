@@ -1,5 +1,6 @@
 # **Général**
 
+
 # Ignorer tous les fichiers temporaires
 *.tmp
 *.temp
@@ -68,6 +69,11 @@ target/
 # Ignorer les fichiers Terraform contenant des variables sensibles
 *.tfvars
 *.tfvars.json
+terraform.tfstate 
+terraform.tfstate.backup
+terraform.tfstate.backup.*
+
+service-account-key.json
 
 
 

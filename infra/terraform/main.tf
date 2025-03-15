@@ -6,12 +6,11 @@ terraform {
       version = "~> 5.0"
     }
   }
-
 }
 
 provider "google" {
-  credentials = file("path/to/your/service-account-key.json") # Si nécessaire
-  project     = "discovery-452411"                            # ID du projet Discovery
+  credentials = file("I:/task-manager-devops/infra/terraform/service-account-key.json")
+  project     = var.project_id
   region      = var.region
   zone        = var.zone
 }
@@ -55,7 +54,7 @@ resource "google_compute_firewall" "allow_ssh_http_https" {
     ports    = ["22", "80", "443"]
   }
 
-  source_ranges = ["0.0.0.0/0"] # Autorise tout le monde (à restreindre si nécessaire)
+  source_ranges = ["176.187.164.57/32"] # Restreint l'accès SSH à votre IP publique uniquement
 }
 
 # Instance Cloud SQL pour PostgreSQL
@@ -73,7 +72,7 @@ resource "google_sql_database_instance" "postgres_instance" {
       ipv4_enabled   = true          # Activer IPv4 public pour se connecter à la base de données
       authorized_networks {          # Ajoutez votre IP publique ici si nécessaire
         name        = "my-ip"
-        value       = "<YOUR_IP_ADDRESS>" # Remplacez par votre adresse IP publique ou laissez vide pour tester.
+        value       = "176.187.164.57/32"
       }
     }
   }
@@ -93,3 +92,5 @@ resource "google_sql_user" "postgres_user" {
   instance = google_sql_database_instance.postgres_instance.name
   password = var.postgres_password # Mot de passe défini dans les variables Terraform ou via un fichier sécurisé.
 }
+
+# Bucket GCS pour stocker l'état Terraform avec un nom unique

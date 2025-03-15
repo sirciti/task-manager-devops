@@ -7,17 +7,13 @@ terraform {
     }
   }
 
-  backend "gcs" {
-    bucket = "my-terraform-state-bucket" # Remplacez par le nom de votre bucket
-    prefix = "terraform/state"
-  }
 }
 
 provider "google" {
-  credentials = file("path/to/your/service-account-key.json") # Chemin vers le fichier JSON
-  project     = var.project_id                                # ID du projet GCP
-  region      = var.region                                    # Région (exemple : us-central1)
-  zone        = var.zone                                      # Zone (exemple : us-central1-c)
+  credentials = file("path/to/your/service-account-key.json") # Si nécessaire
+  project     = "discovery-452411"                            # ID du projet Discovery
+  region      = var.region
+  zone        = var.zone
 }
 
 # Instance Compute Engine (VM) avec Docker

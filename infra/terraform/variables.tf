@@ -1,21 +1,19 @@
 variable "project_id" {
-  type        = string
   description = "ID du projet GCP"
+  type        = string
 }
 
 variable "region" {
+  description = "Région GCP"
   type        = string
-  description = "Région pour les ressources GCP"
-  default     = "us-central1"
 }
 
 variable "zone" {
+  description = "Zone GCP"
   type        = string
-  description = "Zone pour les ressources GCP"
-  default     = "us-central1-c"
 }
 
 variable "postgres_password" {
+  description = "Mot de passe pour PostgreSQL"
   type        = string
-  description = "Mot de passe PostgreSQL root"
 }

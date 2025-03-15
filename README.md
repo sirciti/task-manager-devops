@@ -247,3 +247,109 @@ Sécurisation des variables sensibles avec un fichier .env :
 POSTGRES_USER=admin
 POSTGRES_PASSWORD=admin123
 POSTGRES_DB=mydatabase
+
+
+changement pour GCP
+
+# Configuration Terraform sur Google Cloud Platform (GCP)
+
+Ce document décrit les étapes suivies pour configurer Terraform sur Google Cloud Platform (GCP), ainsi que les problèmes rencontrés et les solutions mises en œuvre.
+
+## Étapes initiales
+
+1.  **Authentification avec le compte Google Cloud :**
+
+    *   Assurez-vous que le compte `account.discovery@dev.devoteam.com` est authentifié avec la Google Cloud CLI :
+
+        ```
+        gcloud auth login account.discovery@dev.devoteam.com
+        ```
+    *   Définissez le projet actif :
+
+        ```
+        gcloud config set project discovery-452411
+        ```
+
+2.  **Configuration du projet Terraform :**
+
+    *   Créez ou modifiez le fichier `main.tf` avec la configuration de votre infrastructure.
+    *   Définissez les variables nécessaires dans un fichier `terraform.tfvars` ou `variables.tf`.
+
+## Configuration du backend GCS (Google Cloud Storage)
+
+1.  **Création du bucket GCS :**
+
+    *   Si aucun bucket n'existe, créez-en un pour stocker l'état Terraform :
+
+        *   Via la console GCP ou via la CLI :
+
+            ```
+            gsutil mb -l <REGION> gs://<YOUR_BUCKET_NAME>
+            ```
+
+            Remplacez `<REGION>` par la région souhaitée (par exemple, `us-central1`) et `<YOUR_BUCKET_NAME>` par un nom de bucket unique (par exemple, `my-terraform-bucket-state`).
+    *   Assurez-vous que la **Prévention de l'accès public** est **activée** pour plus de sécurité.
+
+2.  **Configuration du backend dans `backend.tf` :**
+
+    *   Ajoutez ou modifiez le fichier `backend.tf` pour configurer le backend GCS :
+
+        ```
+        terraform {
+          backend "gcs" {
+            bucket = "my-terraform-bucket-state"
+            prefix = "terraform/state"
+          }
+        }
+        ```
+
+        Remplacez `"my-terraform-bucket-state"` par le nom de votre bucket.
+
+## Problèmes rencontrés et solutions
+
+1.  **Erreur d'autorisation : `... does not have storage.objects.list access to the Google Cloud Storage bucket`**
+
+    *   **Problème :** Terraform utilise un compte incorrect ou n'a pas les permissions nécessaires pour accéder au bucket GCS.
+    *   **Solutions :**
+        *   Vérifiez et configurez les **Application Default Credentials (ADC)** :
+
+            ```
+            gcloud auth list
+            gcloud config set account account.discovery@dev.devoteam.com
+            gcloud auth application-default login
+            ```
+        *   Assurez-vous que le compte a le rôle **`roles/storage.objectAdmin`** sur le bucket :
+
+            ```
+            gcloud storage buckets add-iam-policy-binding gs://my-terraform-bucket-state --member="user:account.discovery@dev.devoteam.com" --role="roles/storage.objectAdmin"
+            ```
+        *   Définissez la variable d'environnement `GOOGLE_APPLICATION_CREDENTIALS` :
+
+            ```
+            $env:GOOGLE_APPLICATION_CREDENTIALS = "C:\Users\lmaum\AppData\Roaming\gcloud\application_default_credentials.json"
+            ```
+
+2.  **Erreur d'URI GCS incorrect : `"gcloud storage buckets ..."` only accepts Google Cloud Storage URLs.**
+
+    *   **Problème :** Les commandes `gcloud storage buckets` nécessitent l'utilisation de l'URI GCS complet (`gs://<bucket_name>`).
+    *   **Solution :** Utilisez l'URI GCS complet dans les commandes :
+
+        ```
+        gcloud storage buckets add-iam-policy-binding gs://my-terraform-bucket-state ...
+        ```
+
+## Initialisation de Terraform
+
+1.  Exécutez la commande `terraform init` pour initialiser le backend et télécharger les plugins nécessaires :
+
+    ```
+    terraform init
+    ```
+
+    Répondez `"yes"` lorsque Terraform vous demande si vous souhaitez migrer l'état local vers le backend GCS.
+
+## Prochaines étapes
+
+*   Exécutez `terraform plan` pour vérifier les changements à appliquer.
+*   Exécutez `terraform apply` pour provisionner les ressources sur GCP.
+

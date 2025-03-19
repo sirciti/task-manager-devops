@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'gcp-instances'
+    static_configs:
+      - targets: ['mon-instance:9100'] # Exporter installé sur les VM
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod

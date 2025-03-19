@@ -535,3 +535,72 @@ Nécessité d'attribuer les bonnes permissions IAM pour le bon fonctionnement de
 
 Avantage de GCP : gestion fine des permissions IAM pour un contrôle précis des accès.
 
+
+##  Implémentation de Terraform pour la création d'infrastructure : ✅ Réalisée avec succès.
+
+# Documentation des étapes et résolution des problèmes
+
+## Étape réalisée : Implémentation de Terraform pour la création d'infrastructure
+
+### Objectif
+Configurer une infrastructure Google Cloud à l'aide de Terraform, incluant :
+- Une instance Compute Engine avec Docker préinstallé.
+- Une base de données Cloud SQL PostgreSQL.
+- Un réseau VPC avec peering.
+
+
+### Problèmes rencontrés et solutions
+
+#### **1. Activation des APIs nécessaires**
+**Problème :** Certaines APIs Google Cloud (comme Service Networking) n'étaient pas activées, ce qui a généré des erreurs lors de l'exécution de `terraform apply`.
+
+**Solution :**
+Commandes utilisées pour activer les APIs :
+
+gcloud services enable servicenetworking.googleapis.com --project=discovery-452411
+gcloud services enable cloudresourcemanager.googleapis.com --project=discovery-452411
+
+
+#### **2. Permissions insuffisantes pour le compte de service**
+**Problème :** Le compte de service utilisé n'avait pas les permissions nécessaires pour effectuer le peering réseau.
+
+**Solution :**
+Commandes utilisées pour attribuer les rôles nécessaires :
+
+gcloud projects add-iam-policy-binding discovery-452411
+--member="serviceAccount:1099497021022-compute@developer.gserviceaccount.com"
+--role="roles/compute.networkAdmin"
+gcloud projects add-iam-policy-binding discovery-452411
+--member="serviceAccount:1099497021022-compute@developer.gserviceaccount.com"
+--role="roles/servicenetworking.serviceAgent"
+
+#### **3. Messages d'erreur interprétés et résolus**
+**Exemple d'erreur :**
+
+Error: googleapi: Error 403: Permission denied to add peering for service 'servicenetworking.googleapis.com'.
+
+
+**Interprétation :** Le compte de service n'avait pas les permissions `servicenetworking.services.addPeering`.
+
+**Solution appliquée :** Attribution du rôle `roles/servicenetworking.serviceAgent` au compte de service.
+
+### Commandes clés utilisées
+Voici un résumé des commandes exécutées pour diagnostiquer et résoudre les problèmes :
+1. **Initialisation Terraform :**
+
+terraform init -migrate-state
+
+2. **Planification des modifications :**
+
+terraform plan
+
+3. **Application des modifications :**
+
+### Résultat final
+L'infrastructure a été déployée avec succès :
+- Instance Compute Engine opérationnelle avec Docker.
+- Base de données PostgreSQL configurée.
+- Peering réseau activé via Service Networking API.
+
+### Remarque importante
+Pour éviter les erreurs, il est essentiel de bien comprendre les messages d'erreur et de vérifier les permissions IAM ainsi que l'état des APIs activées sur Google Cloud.

@@ -1,21 +1,34 @@
 services:
   nginx:
-    image: nginx:latest
+    image: nginx:alpine
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./custom-nginx/html:/usr/share/nginx/html  # Chemin pour les fichiers HTML de Nginx
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/html:/usr/share/nginx/html
+    networks:
+      - app-network
 
   postgres:
-    image: postgres:latest
+    image: postgres:14-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}          # Variable d'environnement pour l'utilisateur PostgreSQL
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # Variable d'environnement pour le mot de passe PostgreSQL
-      POSTGRES_DB: ${POSTGRES_DB}              # Variable d'environnement pour le nom de la base de données PostgreSQL
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # Utilisation d'un volume nommé pour stocker les données PostgreSQL
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  postgres_data:  # Déclaration du volume nommé pour PostgreSQL
+  pgdata:
+
+networks:
+  app-network:
+    driver: bridge

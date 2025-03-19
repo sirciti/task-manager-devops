@@ -1,50 +1,51 @@
-# Configuration de Terraform et du fournisseur Google
+# Configuration de Terraform et du fournisseur Google (version 6.8.0)
 terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
+      version = "6.8.0" # Version mise à jour
     }
   }
+
+  # Configuration du backend GCS pour le statefile
+  # backend "gcs" {
+   #  bucket = "tf-state-task-manager-001" # Nom du bucket existant
+   #  prefix = "terraform/state"          # Chemin pour le fichier de state
+ #  }
 }
 
 provider "google" {
-  credentials = file("I:/task-manager-devops/infra/terraform/service-account-key.json")
+  credentials = file("service-account-key.json") # Chemin vers le fichier JSON
   project     = var.project_id
   region      = var.region
   zone        = var.zone
 }
 
-# Instance Compute Engine (VM) avec Docker
+# Instance Compute Engine avec Docker pré-installé
 resource "google_compute_instance" "docker_host" {
   name         = "mon-instance"
-  machine_type = "e2-medium" # Type de machine (2 vCPU, 4 Go RAM)
+  machine_type = "e2-medium"
   zone         = var.zone
 
   boot_disk {
     initialize_params {
-      image = "debian-cloud/debian-12" # Image Debian Bookworm
+      image = "debian-cloud/debian-12"
     }
   }
 
   network_interface {
-    network       = "default"
-    access_config {} # Permet d'obtenir une IP publique
+    network    = "default"
+    access_config {} # IP publique
   }
 
-  metadata_startup_script = <<-EOT
-    #!/bin/bash
-    sudo apt update
-    sudo apt install -y docker.io
-    sudo systemctl start docker
-    sudo systemctl enable docker
-    sudo usermod -aG docker ${var.ssh_user}
-  EOT
+  metadata_startup_script = templatefile("${path.module}/startup.sh", {
+    ssh_user = var.ssh_user
+  })
 
   tags = ["docker-host"]
 }
 
-# Pare-feu pour autoriser SSH, HTTP et HTTPS
+# Pare-feu amélioré avec variables pour IP source
 resource "google_compute_firewall" "allow_ssh_http_https" {
   name    = "allow-ssh-http-https"
   network = "default"
@@ -54,43 +55,49 @@ resource "google_compute_firewall" "allow_ssh_http_https" {
     ports    = ["22", "80", "443"]
   }
 
-  source_ranges = ["176.187.164.57/32"] # Restreint l'accès SSH à votre IP publique uniquement
+  source_ranges = [var.allowed_ip] # Variable pour IP autorisée
 }
 
-# Instance Cloud SQL pour PostgreSQL
+# Cloud SQL PostgreSQL avec sauvegarde automatique
 resource "google_sql_database_instance" "postgres_instance" {
   name             = "postgres-instance"
-  database_version = "POSTGRES_14" # Version PostgreSQL
+  database_version = "POSTGRES_14"
+  deletion_protection = false # Désactiver pour les environnements de test
 
   settings {
-    tier              = "db-f1-micro" # Type d'instance (ajustez selon vos besoins)
-    disk_size         = 10           # Taille du disque en Go
-    disk_type         = "PD_SSD"     # Disque SSD persistant
-    activation_policy = "ALWAYS"
+    tier              = "db-f1-micro"
+    disk_size         = 10
+    disk_type         = "PD_SSD"
+    availability_type = "ZONAL"
+
+    backup_configuration {
+      enabled     = true
+      start_time  = "23:00"
+    }
 
     ip_configuration {
-      ipv4_enabled   = true          # Activer IPv4 public pour se connecter à la base de données
-      authorized_networks {          # Ajoutez votre IP publique ici si nécessaire
-        name        = "my-ip"
-        value       = "176.187.164.57/32"
+      ipv4_enabled          = true
+      authorized_networks {
+        name  = "admin-access"
+        value = var.allowed_ip
       }
     }
   }
 
-  region = var.region
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
-# Base de données PostgreSQL dans l'instance Cloud SQL
-resource "google_sql_database" "postgres_db" {
-  name     = "mydatabase"
-  instance = google_sql_database_instance.postgres_instance.name
+# Configuration réseau avancée pour Cloud SQL
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = "default"
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
 }
 
-# Utilisateur PostgreSQL avec mot de passe défini dans les variables Terraform
-resource "google_sql_user" "postgres_user" {
-  name     = "admin"
-  instance = google_sql_database_instance.postgres_instance.name
-  password = var.postgres_password # Mot de passe défini dans les variables Terraform ou via un fichier sécurisé.
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "private-ip-address"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = "default"
 }
-
-# Bucket GCS pour stocker l'état Terraform avec un nom unique
